@@ -106,6 +106,11 @@ class SelectorCV(ModelSelector):
     '''
 
     def select(self):
+        """
+        Implemented the cross-validation method to select the model with 
+        the best average score of three different fold data sets while
+        varying the number of states in the HMM
+        """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         n_of_splits = min(len(self.sequences), 3)
