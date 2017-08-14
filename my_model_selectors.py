@@ -116,12 +116,10 @@ class SelectorCV(ModelSelector):
         n_of_splits = min(len(self.sequences), 3)
         split_method = KFold(n_splits=n_of_splits)
         max_average_score = float("-inf")
-        final_max_model = None
+        best_state_count = self.min_n_components
 
         for n_of_components in range(self.min_n_components, self.max_n_components):
-            c_max_model = None
             current_scores = []
-            c_max_score = float("-inf")
             for cv_training_idx, cv_testing_idx in split_method.split(self.sequences):
                 training_X, training_lengths = combine_sequences(cv_training_idx, self.sequences)
                 testing_X, testing_lengths = combine_sequences(cv_testing_idx, self.sequences)
@@ -138,16 +136,17 @@ class SelectorCV(ModelSelector):
                     continue
 
                 current_scores.append(score)
-                if c_max_score < score:
-                    c_max_model = model
-                    c_max_score = score
 
             c_average_score = float("-inf")
             if current_scores:
+                # get the average, if we have scores with the current number of
+                # states
                 c_average_score = np.average(current_scores)
 
+            # pick the max score based on current number of state average score
             if max_average_score < c_average_score:
                 max_average_score = c_average_score
-                final_max_model = c_max_model
+                best_state_count = n_of_components
 
-        return final_max_model
+        return self.base_model(best_state_count, self.X, self.lengths)
+
