@@ -31,13 +31,17 @@ class ModelSelector(object):
     def select(self):
         raise NotImplementedError
 
-    def base_model(self, num_states):
+    def base_model(self, num_states, X=None, lengths=None):
+        if X is None:
+            X = self.X
+        if lengths is None:
+            lengths = self.lengths
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=RuntimeWarning)
         try:
             hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
-                                    random_state=self.random_state, verbose=False).fit(self.X, self.lengths)
+                                    random_state=self.random_state, verbose=False).fit(X, lengths)
             if self.verbose:
                 print("model created for {} with {} states".format(self.this_word, num_states))
             return hmm_model
@@ -104,5 +108,41 @@ class SelectorCV(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+        n_of_splits = min(len(self.sequences), 3)
+        split_method = KFold(n_splits=n_of_splits)
+        max_average_score = float("-inf")
+        final_max_model = None
+
+        for n_of_components in range(self.min_n_components, self.max_n_components):
+            c_max_model = None
+            current_scores = []
+            c_max_score = float("-inf")
+            for cv_training_idx, cv_testing_idx in split_method.split(self.sequences):
+                training_X, training_lengths = combine_sequences(cv_training_idx, self.sequences)
+                testing_X, testing_lengths = combine_sequences(cv_testing_idx, self.sequences)
+                model = self.base_model(n_of_components, training_X, training_lengths)
+                if model is None:
+                    if self.verbose:
+                        print("model failure on {} with {} states".format(self.this_word, n_of_components))
+                    continue
+                try:
+                    score = model.score(testing_X, testing_lengths)
+                except:
+                    if self.verbose:
+                        print("score failure on {} with {} states".format(self.this_word, n_of_components))
+                    continue
+
+                current_scores.append(score)
+                if c_max_score < score:
+                    c_max_model = model
+                    c_max_score = score
+
+            c_average_score = float("-inf")
+            if current_scores:
+                c_average_score = np.average(current_scores)
+
+            if max_average_score < c_average_score:
+                max_average_score = c_average_score
+                final_max_model = c_max_model
+
+        return final_max_model
