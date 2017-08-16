@@ -35,7 +35,7 @@ def recognize(models: dict, test_set: SinglesData):
             except:
                 print("error scoring for model word {} with word index {}".format(model_word, word_index))
 
-            probabilities.append(word_probabilities)
+        probabilities.append(word_probabilities)
         guesses.insert(word_index, best_guess_word)
     return (probabilities, guesses)
 
