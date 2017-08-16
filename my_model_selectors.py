@@ -187,28 +187,41 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         n_of_splits = min(len(self.sequences), 3)
-        split_method = KFold(n_splits=n_of_splits)
         max_average_score = float("-inf")
         best_state_count = self.min_n_components
 
         for n_of_components in range(self.min_n_components, self.max_n_components):
             current_scores = []
-            for cv_training_idx, cv_testing_idx in split_method.split(self.sequences):
-                training_X, training_lengths = combine_sequences(cv_training_idx, self.sequences)
-                testing_X, testing_lengths = combine_sequences(cv_testing_idx, self.sequences)
-                model = self.base_model(n_of_components, training_X, training_lengths)
+            if n_of_splits == 1:
+                model = self.base_model(n_of_components, self.X, self.lengths)
                 if model is None:
                     if self.verbose:
                         print("model failure on {} with {} states".format(self.this_word, n_of_components))
                     continue
                 try:
                     score = model.score(testing_X, testing_lengths)
+                    current_scores.append(score)
                 except:
                     if self.verbose:
                         print("score failure on {} with {} states".format(self.this_word, n_of_components))
                     continue
-
-                current_scores.append(score)
+            else:
+                split_method = KFold(n_splits=n_of_splits)
+                for cv_training_idx, cv_testing_idx in split_method.split(self.sequences):
+                    training_X, training_lengths = combine_sequences(cv_training_idx, self.sequences)
+                    testing_X, testing_lengths = combine_sequences(cv_testing_idx, self.sequences)
+                    model = self.base_model(n_of_components, training_X, training_lengths)
+                    if model is None:
+                        if self.verbose:
+                            print("model failure on {} with {} states".format(self.this_word, n_of_components))
+                        continue
+                    try:
+                        score = model.score(testing_X, testing_lengths)
+                        current_scores.append(score)
+                    except:
+                        if self.verbose:
+                            print("score failure on {} with {} states".format(self.this_word, n_of_components))
+                        continue
 
             c_average_score = float("-inf")
             if current_scores:
