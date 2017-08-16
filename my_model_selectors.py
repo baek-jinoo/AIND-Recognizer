@@ -81,10 +81,8 @@ class SelectorBIC(ModelSelector):
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        best_state_count = self.min_n_components
         best_model = None
         least_bic = float("inf")
-        accLenghts = list(itertools.accumulate(self.lengths))[-1]
 
         for n_of_components in range(self.min_n_components, self.max_n_components):
             model = self.base_model(n_of_components, self.X, self.lengths)
@@ -93,22 +91,24 @@ class SelectorBIC(ModelSelector):
                     print("model failure on {} with {} states".format(self.this_word, n_of_components))
                 continue
             try:
-                score = model.score(testing_X, testing_lengths)
+                score = model.score(self.X, self.lengths)
             except:
                 if self.verbose:
                     print("score failure on {} with {} states".format(self.this_word, n_of_components))
                 continue
 
-            p = n_of_components ** 2 + 2.0 * len(self.X[0]) * n_of_components - 1
+            number_of_parameters = n_of_components ** 2.0 + 2.0 * len(self.X[0]) * n_of_components - 1.0
 
-            c_bic = np.log(accLenghts) * p - 2.0 * score
+            logL = score
+            p = number_of_parameters
+            N = len(self.X)
+            # BIC = −2 log L + p log N
+            c_bic = (-2.0) * logL + p * np.log(N)
             if least_bic > c_bic:
                 least_bic = c_bic
                 best_model = model
 
         return best_model
-
-
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
