@@ -111,6 +111,26 @@ class SelectorBIC(ModelSelector):
         return best_model
 
 class SelectorDIC(ModelSelector):
+
+    def average_score_of_other_words(self, model, this_word, n_of_components):
+        # get all words without this word
+        total_score = 0.0
+        count = 0
+        for key, (X, lengths) in self.hwords.items():
+            if key == this_word:
+                continue
+
+            try:
+                score = model.score(X, lengths)
+                total_score += score
+                count += 1
+            except:
+                if self.verbose:
+                    print("other word score failure on {} with {} states".format(key, n_of_components))
+                continue
+
+        return total_score / float(count)
+
     ''' select best model based on Discriminative Information Criterion
 
     Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
@@ -122,8 +142,35 @@ class SelectorDIC(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        best_DIC = float("-inf")
+        best_model = None
+
+        for n_of_components in range(self.min_n_components, self.max_n_components):
+            model = self.base_model(n_of_components, self.X, self.lengths)
+            if model is None:
+                if self.verbose:
+                    print("model failure on {} with {} states".format(self.this_word, n_of_components))
+                continue
+            try:
+                score = model.score(self.X, self.lengths)
+            except:
+                if self.verbose:
+                    print("model failure on {} with {} states".format(self.this_word, n_of_components))
+                continue
+
+            other_words_average_score = self.average_score_of_other_words(model,
+                                                                          self.this_word,
+                                                                          n_of_components)
+
+            #DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
+            #DIC = current_logL - average_of_other_logLs
+            c_dic = score - other_words_average_score
+
+            if c_dic > best_DIC:
+                best_DIC = c_dic
+                best_model = model
+
+        return best_model
 
 
 class SelectorCV(ModelSelector):
